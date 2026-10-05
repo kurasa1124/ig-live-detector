@@ -1,7 +1,7 @@
-"""Entry point for `igld run`: load config + session, run the full detect + record pipeline."""
+"""Entry point for `igld run`: load config + session, run the detector (webhook / recording outputs)."""
 from __future__ import annotations
 
-from .api import record_lives
+from .api import run_detector
 from .config import Config
 from .i18n import t
 from .session import load_settings
@@ -15,8 +15,11 @@ class InstaLiveApp:
             raise RuntimeError(t("app.no_session", path=config.settings_path))
 
     async def run(self) -> None:
-        await record_lives(
+        await run_detector(
             self.settings,
+            record=self.config.record,
+            webhook=self.config.webhook or None,
+            webhook_token=self.config.webhook_token or None,
             output_dir=self.config.output_dir,
             ffmpeg=self.config.ffmpeg,
             filename_template=self.config.filename_template,

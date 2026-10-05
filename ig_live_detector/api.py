@@ -125,6 +125,87 @@ async def watch_lives(
     await fbns.run_forever(on_ready=on_ready)
 
 
+async def run_detector(
+    settings: dict,
+    *,
+    record: bool = True,
+    webhook: Optional[str] = None,
+    webhook_token: Optional[str] = None,
+    output_dir: str = "recordings",
+    ffmpeg: str = "ffmpeg",
+    filename_template: str = "ig_live_{username}_{datetime}_part{part:02d}",
+    client=None,
+    targets: Optional[list[str]] = None,
+    on_ready: Optional[Callable[[], None]] = None,
+) -> None:
+    """Detection core. On each detected live, run the configured outputs (any combination):
+
+    - webhook: POST {broadcast_id, user_id, username} to `webhook` (optional token header).
+    - record: fetch the playback URL and record to mp4 (with resume).
+
+    Both outputs are optional and composable. Runs forever.
+    """
+    from . import recorder
+    from .webhook import make_webhook_notifier
+
+    cl = client or build_client(settings)
+    active: dict[str, asyncio.Task] = {}
+    notifier = make_webhook_notifier(webhook, webhook_token) if webhook else None
+
+    async def on_live(broadcast_id: str, user_id: str, notif: dict) -> None:
+        if notifier is not None:
+            loop = asyncio.get_event_loop()
+            username = ""
+            try:
+                username = await loop.run_in_executor(
+                    None, lambda: str(recorder.resolve_username(cl, user_id))
+                )
+            except Exception:  # noqa: BLE001
+                username = ""
+            # igld 有 session，順手取 playback URL 一起送，收端不必再登入 IG
+            status, playback_url = "", ""
+            try:
+                status, playback_url = await loop.run_in_executor(
+                    None, lambda: recorder.fetch_playback_url(cl, broadcast_id)
+                )
+            except Exception as exc:  # noqa: BLE001
+                print(_t("webhook.url_failed", bid=broadcast_id, err=exc))
+            await notifier(
+                {
+                    "broadcast_id": broadcast_id,
+                    "user_id": user_id,
+                    "username": username,
+                    "status": status,
+                    "playback_url": playback_url,
+                }
+            )
+
+        if record:
+            task = active.get(broadcast_id)
+            if task is not None and not task.done():
+                return  # already recording this one
+            new_task = asyncio.create_task(
+                recorder.supervise_recording(
+                    cl,
+                    broadcast_id,
+                    user_id,
+                    output_dir,
+                    ffmpeg,
+                    filename_template=filename_template,
+                )
+            )
+            active[broadcast_id] = new_task
+
+            def _done(t: asyncio.Task, bid: str = broadcast_id) -> None:
+                active.pop(bid, None)
+                if not t.cancelled() and t.exception() is not None:
+                    print(_t("rec.task_error", bid=bid, err=t.exception()))
+
+            new_task.add_done_callback(_done)
+
+    await watch_lives(settings, on_live, client=cl, targets=targets, on_ready=on_ready)
+
+
 async def record_lives(
     settings: dict,
     *,
@@ -135,36 +216,14 @@ async def record_lives(
     targets: Optional[list[str]] = None,
     on_ready: Optional[Callable[[], None]] = None,
 ) -> None:
-    """Full pipeline: detect a live -> fetch playback URL -> record to mp4 (with resume). Runs forever.
-
-    One-liner for consumers who just want "detect + auto-record"; use watch_lives for custom behavior.
-    """
-    from . import recorder
-
-    cl = client or build_client(settings)
-    active: dict[str, asyncio.Task] = {}
-
-    async def on_live(broadcast_id: str, user_id: str, notif: dict) -> None:
-        task = active.get(broadcast_id)
-        if task is not None and not task.done():
-            return  # already recording this one
-        new_task = asyncio.create_task(
-            recorder.supervise_recording(
-                cl,
-                broadcast_id,
-                user_id,
-                output_dir,
-                ffmpeg,
-                filename_template=filename_template,
-            )
-        )
-        active[broadcast_id] = new_task
-
-        def _done(t: asyncio.Task, bid: str = broadcast_id) -> None:
-            active.pop(bid, None)
-            if not t.cancelled() and t.exception() is not None:
-                print(_t("rec.task_error", bid=bid, err=t.exception()))
-
-        new_task.add_done_callback(_done)
-
-    await watch_lives(settings, on_live, client=cl, targets=targets, on_ready=on_ready)
+    """Detect lives and record them to mp4 (with resume). Thin wrapper over run_detector(record=True)."""
+    await run_detector(
+        settings,
+        record=True,
+        output_dir=output_dir,
+        ffmpeg=ffmpeg,
+        filename_template=filename_template,
+        client=client,
+        targets=targets,
+        on_ready=on_ready,
+    )

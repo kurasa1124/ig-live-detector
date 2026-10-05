@@ -40,8 +40,8 @@ def set_lang(value: str) -> None:
 MESSAGES: dict[str, dict[str, str]] = {
     # CLI: argparse
     "cli.desc": {
-        "en": "Pure-Python Instagram Live detector via FBNS push + auto recorder.",
-        "zh": "純 Python：用 IG FBNS 推播偵測開直播，自動錄影。",
+        "en": "Pure-Python Instagram Live detector (FBNS push). Outputs: webhook and/or recording.",
+        "zh": "純 Python IG 開直播偵測器（FBNS 推播）。輸出：webhook 與／或錄影。",
     },
     "cli.login.help": {
         "en": "Log in to Instagram and save the session (interactive).",
@@ -56,8 +56,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "zh": "2FA 驗證碼或備用碼（省略會在需要時詢問）。",
     },
     "cli.run.help": {
-        "en": "Connect to FBNS, detect lives and auto-record.",
-        "zh": "連 FBNS 偵測直播並自動錄影。",
+        "en": "Run the detector (FBNS); outputs configured via env (webhook / recording).",
+        "zh": "跑偵測器（FBNS）；輸出用環境變數設定（webhook／錄影）。",
     },
     # CLI: login flow
     "login.need_settings": {
@@ -162,6 +162,18 @@ MESSAGES: dict[str, dict[str, str]] = {
     "rec.task_error": {
         "en": "✗ recording task crashed bid={bid}: {err}",
         "zh": "✗ 錄影任務異常 bid={bid}：{err}",
+    },
+    "webhook.sent": {
+        "en": "📡 webhook sent bid={bid} (HTTP {status})",
+        "zh": "📡 已送 webhook bid={bid}（HTTP {status}）",
+    },
+    "webhook.failed": {
+        "en": "✗ webhook failed bid={bid}: {err}",
+        "zh": "✗ webhook 失敗 bid={bid}：{err}",
+    },
+    "webhook.url_failed": {
+        "en": "⚠️ could not fetch playback URL for webhook bid={bid}: {err}",
+        "zh": "⚠️ webhook 取 playback URL 失敗 bid={bid}：{err}",
     },
     # fbns
     "fbns.session_expired": {
