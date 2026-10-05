@@ -23,6 +23,7 @@ pip install git+https://github.com/kurasa1124/ig-live-detector.git
 | 變數 | 說明 | 預設 |
 |---|---|---|
 | `IGLD_SETTINGS` | session 檔路徑（登入後存於此） | （必填） |
+| `IGLD_SETTINGS_JSON` | session JSON 內容；首次啟動時若 `IGLD_SETTINGS` 檔不存在就寫入該路徑（供 server 部署用） | （空） |
 | `IGLD_TARGETS` | 僅對這些帳號執行動作（username 或 uid，逗號分隔）；空值＝全部 | （空） |
 | `IGLD_WEBHOOK` | 收到開播通知時 POST 至此 URL；空值＝不呼叫 webhook | （空） |
 | `IGLD_WEBHOOK_TOKEN` | 隨 webhook 請求以 `X-IGLD-Token` 標頭傳送 | （空） |
@@ -60,14 +61,20 @@ FBNS 是**推播**：哪些開播通知會進來，取決於**登入帳號追蹤
 
 ## 使用
 
-先登入（密碼由終端機安全輸入；帳號若開 2FA 用 `--code` 帶驗證碼或備用碼）：
+### 1. 產出 session（本機登入）
+
+`igld login` 會把 session 存到 `IGLD_SETTINGS`：
 
 ```bash
 export IGLD_SETTINGS=~/.igld/session.json
-igld login --username <帳號> [--code 6位碼或備用碼]
+igld login --username <帳號>
 ```
 
-再啟動通知接收器（常駐），透過環境變數選擇輸出方式：
+密碼由終端機輸入；帳號若開 2FA，會提示輸入 6 位碼或備用碼（也可用 `--code` 帶入）。
+
+### 2. 執行（接收通知）
+
+常駐程序，輸出方式由環境變數決定：
 
 ```bash
 # 接收開播通知並錄影（預設）
@@ -79,6 +86,22 @@ IGLD_RECORD=0 IGLD_WEBHOOK=https://example.com/hook igld run
 # 接收開播通知、錄影並 POST webhook
 IGLD_WEBHOOK=https://example.com/hook igld run
 ```
+
+### 3. 部署到 server
+
+`igld run` 使用現成 session，由本機 `igld login` 產出。提供方式：
+
+1. 讀取本機 session：
+
+   ```bash
+   cat ~/.igld/session.json
+   ```
+
+2. 在 server 設定：
+   - `IGLD_SETTINGS=/data/session.json` — 可寫路徑，最好挂在永久化 volume。
+   - `IGLD_SETTINGS_JSON=<步驟 1 的完整 JSON>`。
+
+首次啟動時 session 會從 `IGLD_SETTINGS_JSON` 寫入 `IGLD_SETTINGS`，並於每次重啟沿用。session 過期時，在本機重新登入一次並更新 `IGLD_SETTINGS_JSON`。
 
 ## 授權
 

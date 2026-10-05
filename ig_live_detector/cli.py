@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import getpass
+import os
 import sys
 from typing import Optional
 
@@ -33,6 +34,7 @@ def main(argv: Optional[list[str]] = None) -> None:
         if not cfg.settings_path:
             print(t("run.need_settings"))
             sys.exit(1)
+        _ensure_session(cfg)
         import asyncio
 
         from .app import InstaLiveApp
@@ -50,7 +52,9 @@ def main(argv: Optional[list[str]] = None) -> None:
 
 
 def _do_login(cfg: Config, username: str, code: str) -> None:
-    """Interactive login: username -> password -> 2FA/backup code when required."""
+    """Interactive local login: prompt for anything not given on the command line,
+    read the password securely, and save the session to IGLD_SETTINGS.
+    """
     from . import session
 
     username = username or input(t("login.prompt_username")).strip()
@@ -85,4 +89,24 @@ def _do_login(cfg: Config, username: str, code: str) -> None:
         sys.exit(1)
 
     print(t("login.success", path=cfg.settings_path))
+
+
+def _ensure_session(cfg: Config) -> None:
+    """Seed the session file from IGLD_SETTINGS_JSON when it is missing.
+
+    `igld run` reuses an existing session; `igld login` produces one locally.
+    """
+    if os.path.exists(cfg.settings_path):
+        return
+    raw = os.environ.get("IGLD_SETTINGS_JSON", "").strip()
+    if not raw:
+        return
+    import json
+
+    from . import session as _session
+
+    try:
+        _session.save_settings(cfg.settings_path, json.loads(raw))
+    except Exception as exc:  # noqa: BLE001
+        print(f"✗ IGLD_SETTINGS_JSON invalid: {exc}")
 

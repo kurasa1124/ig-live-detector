@@ -23,6 +23,7 @@ Via environment variables:
 | Variable | Description | Default |
 |---|---|---|
 | `IGLD_SETTINGS` | Session file path (saved here after login) | (required) |
+| `IGLD_SETTINGS_JSON` | Session JSON content; on first run it is written to `IGLD_SETTINGS` when that file is missing (for server deploys) | (empty) |
 | `IGLD_TARGETS` | Only act on these accounts (username or uid, comma-separated); empty = all | (empty) |
 | `IGLD_WEBHOOK` | On each received live notification, POST to this URL; empty = no webhook | (empty) |
 | `IGLD_WEBHOOK_TOKEN` | Sent as the `X-IGLD-Token` header with the webhook | (empty) |
@@ -60,14 +61,20 @@ FBNS is **push-based**: which live notifications arrive depends on **who the log
 
 ## Usage
 
-First log in (the password is read securely from the terminal; if the account has 2FA, pass a verification or backup code with `--code`):
+### 1. Produce a session (local login)
+
+`igld login` saves a session to `IGLD_SETTINGS`:
 
 ```bash
 export IGLD_SETTINGS=~/.igld/session.json
-igld login --username <username> [--code 6-digit-or-backup-code]
+igld login --username <username>
 ```
 
-Then run the notification receiver (long-running). Choose outputs via env:
+The password is read from the terminal; for a 2FA account a 6-digit or backup code is prompted (or passed with `--code`).
+
+### 2. Run (receive notifications)
+
+Long-running. Outputs are chosen via env:
 
 ```bash
 # receive live notifications + record (default)
@@ -79,6 +86,22 @@ IGLD_RECORD=0 IGLD_WEBHOOK=https://example.com/hook igld run
 # receive live notifications → record AND POST a webhook
 IGLD_WEBHOOK=https://example.com/hook igld run
 ```
+
+### 3. Deploy to a server
+
+`igld run` uses an existing session, produced locally with `igld login`. To provide it:
+
+1. Read the local session:
+
+   ```bash
+   cat ~/.igld/session.json
+   ```
+
+2. On the server set:
+   - `IGLD_SETTINGS=/data/session.json` — a writable path, ideally on a persistent volume.
+   - `IGLD_SETTINGS_JSON=<the full JSON from step 1>`.
+
+On first start the session is written to `IGLD_SETTINGS` from `IGLD_SETTINGS_JSON` and reused on every restart. Update `IGLD_SETTINGS_JSON` after logging in again locally when the session expires.
 
 ## License
 
