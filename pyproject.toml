@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ig-live-detector"
+dynamic = ["version"]
+description = "Pure-Python Instagram Live detector via FBNS push + auto recorder"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+    "instagrapi>=3.0.20",
+    "imageio-ffmpeg>=0.4.9",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[project.scripts]
+igld = "ig_live_detector.cli:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "ig_live_detector._version.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["ig_live_detector*"]
+
+[tool.pytest.ini_options]
+# 讓 pytest 不必安裝套件就能 import ig_live_detector
+pythonpath = ["."]
+testpaths = ["tests"]

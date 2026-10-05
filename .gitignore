@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+
+# instalive 執行產物
+recordings/
+.fbns_auth.json
+
+# session / 機密（含登入憑證，勿提交）
+*_settings.json
+instagrapi_settings.json
+.env
